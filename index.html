@@ -8,8 +8,8 @@
 <style>
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#1b1420}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
-body{margin:0;background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center}
-canvas{width:min(100vw,166vh);max-width:100%;display:block;image-rendering:pixelated;touch-action:manipulation}
+body{margin:0;background:var(--bg);min-height:100vh;min-height:100dvh;box-sizing:border-box;padding:max(20px,4vmin);display:flex;align-items:center;justify-content:center}
+canvas{width:min(92vw,880px,140vh);max-width:100%;display:block;image-rendering:pixelated;touch-action:manipulation;box-shadow:0 0 0 6px #3a2012,0 0 0 10px #6d3c1c,0 24px 60px rgba(0,0,0,.55)}
 </style>
 </head>
 <body>
@@ -99,6 +99,7 @@ const hot=[
 ];
 const ch={x:150,y:104,pose:'stand',dir:'down',path:[],timer:50,t:0,last:-1,spot:null};
 let hover=null,toast='',toastT=0;
+let DT=1; // 每帧相当于多少个 60fps 帧：60Hz 时约 1，120Hz 时约 0.5
 const SF=spots[2];
 function route(f,t){
   const p=[];
@@ -110,12 +111,12 @@ function route(f,t){
 function pick(){let i;do{i=Math.random()*spots.length|0}while(i===ch.last);
   ch.path=route(spots[ch.last],spots[i]);ch.spot=spots[i];ch.last=i}
 function update(){
-  ch.t++;
-  if(!ch.path.length){if(--ch.timer<=0)pick();return}
+  ch.t+=DT;
+  if(!ch.path.length){ch.timer-=DT;if(ch.timer<=0)pick();return}
   const p=ch.path[0],dx=p[0]-ch.x,dy=p[1]-ch.y,d=Math.hypot(dx,dy);
   if(d<1){ch.x=p[0];ch.y=p[1];ch.path.shift();
     if(!ch.path.length){const s=ch.spot;ch.pose=s.pose;ch.dir=s.dir||'down';ch.timer=s.dur+(Math.random()*120|0)}}
-  else{ch.x+=dx/d*.7;ch.y+=dy/d*.7;ch.pose='walk';ch.dir=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up')}
+  else{ch.x+=dx/d*.7*DT;ch.y+=dy/d*.7*DT;ch.pose='walk';ch.dir=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up')}
 }
 
 // ---- 绘制 ----
@@ -179,11 +180,15 @@ function fx(){
   }else{
     [[262,22,0],[102,59,2]].forEach(a=>{if(Math.sin(ch.t*.06+a[2])>.7){R(a[0],a[1]-2,1,5,'#fff7c0');R(a[0]-2,a[1],5,1,'#fff7c0')}});
   }
-  if(toastT>0){toastT--;g.font=FONT;g.textBaseline='top';const tw=Math.ceil(g.measureText(toast).width),bx=(W-tw)/2-6|0;
+  if(toastT>0){toastT-=DT;g.font=FONT;g.textBaseline='top';const tw=Math.ceil(g.measureText(toast).width),bx=(W-tw)/2-6|0;
     R(bx-1,176,tw+14,15,'#5b2e12');R(bx,177,tw+12,13,'#f8e0a4');g.fillStyle='#5b2e12';g.fillText(toast,bx+6,180)}
 }
 const vg=g.createRadialGradient(160,96,80,160,96,215);vg.addColorStop(0,'rgba(40,10,0,0)');vg.addColorStop(1,'rgba(40,10,0,.38)');
-function loop(){
+let lastT=null;
+function loop(now){
+  if(now===undefined)now=performance.now();
+  if(lastT===null){lastT=now;DT=1}
+  else{DT=(now-lastT)/16.666;lastT=now;if(DT>3)DT=3;if(DT<0)DT=0}
   update();sky();g.drawImage(bg,0,0);screen();book();cat();person();
   if(TINT)R(0,0,W,H,TINT);
   g.fillStyle=vg;g.fillRect(0,0,W,H);fx();
